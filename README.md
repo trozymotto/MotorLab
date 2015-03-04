@@ -1,2 +1,1 @@
-# MotorLab
-msse 2015 embedded motor lab assignment
+# msse_embedded
