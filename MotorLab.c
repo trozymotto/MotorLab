@@ -32,12 +32,12 @@ volatile uint8_t G_flag = 0; // generic flag for debugging
 
 // Motor test specific items
 // define the bit-masks for each port that the LEDs are attached to
-#define DD_REG_ENCA	 DDRB
-#define DD_REG_ENCB  DDRC
-#define PORT_ENCA  PORTB
-#define PORT_ENCB  PORTC
-#define BIT_ENCA   ( 1 << 4 )
-#define BIT_ENCB   ( 1 << 0 )
+#define DD_REG_ENCA	 DDRD
+#define DD_REG_ENCB  DDRD
+#define PORT_ENCA  PORTD
+#define PORT_ENCB  PORTD
+#define BIT_ENCA   ( 1 << 0 )
+#define BIT_ENCB   ( 1 << 1 )
 
 #define GET_ENCA ((PORT_ENCA & BIT_ENCA) == BIT_ENCA)?1:0
 #define GET_ENCB ((PORT_ENCB & BIT_ENCB) == BIT_ENCB)?1:0
@@ -58,11 +58,12 @@ int main(void)
 {
 
 	// Initialization here.
+    encoders_init(IO_D2, IO_D3, IO_C0, IO_B4);
     //init_encoder();
 	lcd_init_printf();	// required if we want to use printf() for LCD printing
-	init_LEDs();
-	init_timers();
-	init_menu();	// this is initialization of serial comm through USB
+	//init_LEDs();
+	//init_timers();
+	//init_menu();	// this is initialization of serial comm through USB
 	
 	clear();	// clear the LCD
 
@@ -71,7 +72,7 @@ int main(void)
 	
 	while (1) 
 	{
-        lab1_test();
+        //lab1_test();
         motor_test();
 		
 	} //end while loop
@@ -129,10 +130,26 @@ void motor_test()
 
 	set_motors(m1_speed * (m1_back ? -1 : 1),0);
 	delay_ms(50);
-	
+#if 0
+	// Read the counts for motor 1 and print to LCD.
+    lcd_goto_xy(0,0);
+    print_long(encoders_get_counts_m1());
+    print(" ");
+    // Read the counts for motor 2 and print to LCD.
+    lcd_goto_xy(0,1);
+    print_long(encoders_get_counts_m2());
+    print(" ");
+#else
+    // Read the counts for motor 1 and print to LCD.
+    lcd_goto_xy(0,0);
+    print_long(encoderVal);
+    print(" ");
+#endif
 	// Print the encoder counts
-	sendLen = sprintf(send_buffer, "Encoder: %d\r\n", encoderVal);
-	print_usb( send_buffer, sendLen );
+	//sendLen = sprintf(send_buffer, "Encoder: %d\r\n", encoderVal);
+	//sendLen = sprintf(send_buffer, "Encoder: %d, %d\r\n", 
+	//                  encoders_get_counts_m1(), encoders_get_counts_m2());
+	//print_usb( send_buffer, sendLen );
 }
 
 // Test code from Lab1
@@ -148,9 +165,9 @@ void lab1_test()
 	serial_check();
 	check_for_new_bytes_received();
 }
-
+/*
 // External Interrupt 1 Handler
-ISR(INT1_vect)
+ISR(PCINT1_vect)
 {
     currEncA = GET_ENCA;
     if(currEncA == 1)
@@ -171,7 +188,7 @@ ISR(INT1_vect)
 }
 
 // External Interrupt 2 Handler
-ISR(INT2_vect)
+ISR(PCINT2_vect)
 {
     currEncB = GET_ENCB;
     if(currEncB == 1)
@@ -190,4 +207,4 @@ ISR(INT2_vect)
     }
     lastEncB = currEncB;
 }
-
+*/
