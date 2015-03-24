@@ -32,17 +32,21 @@ volatile uint8_t G_flag = 0; // generic flag for debugging
 
 // Motor test specific items
 // define the bit-masks for each port that the LEDs are attached to
-#define DD_REG_ENCA	 DDRD
-#define DD_REG_ENCB  DDRD
-#define PORT_ENCA  PORTD
-#define PORT_ENCB  PORTD
-#define BIT_ENCA   ( 1 << 0 )
-#define BIT_ENCB   ( 1 << 1 )
+#define DD_REG_M1_ENC  DDRD
+#define DD_REG_M1_PWM  DDRD
+#define DD_REG_M1_DIR  DDRC
+#define PORT_M1        PORTD
+#define PORT_M1_DIR    PORTC
+#define BIT_M1_ENCA   ( 1 << 2 )
+#define BIT_M1_ENCB   ( 1 << 3 )
+#define BIT_M1_PWM    ( 1 << 7 )
+#define BIT_M1_DIR    ( 1 << 7 ) 
 
-#define GET_ENCA ((PORT_ENCA & BIT_ENCA) == BIT_ENCA)?1:0
-#define GET_ENCB ((PORT_ENCB & BIT_ENCB) == BIT_ENCB)?1:0
+#define GET_ENCA ((PORT_M1 & BIT_M1_ENCA) == BIT_M1_ENCA)?1:0
+#define GET_ENCB ((PORT_M1 & BIT_M1_ENCB) == BIT_M1_ENCB)?1:0
 
 void init_encoder();
+void init_motor_control();
 void motor_test();
 
 volatile int currEncA = 0;
@@ -60,6 +64,7 @@ int main(void)
 	// Initialization here.
     encoders_init(IO_D2, IO_D3, IO_C0, IO_B4);
     //init_encoder();
+    init_motor_control();
 	lcd_init_printf();	// required if we want to use printf() for LCD printing
 	//init_LEDs();
 	//init_timers();
@@ -78,12 +83,18 @@ int main(void)
 	} //end while loop
 } //end main
 
+void init_motor_control()
+{
+    // PWM is on PD7 and Direction is on PC7
+    
+}
+
 void init_encoder()
 {
     // Set as inputs
     // Encoder lines are PORTC0 and PORTB4
-	DD_REG_ENCA &= ~BIT_ENCA;
-	DD_REG_ENCB &= ~BIT_ENCB;
+	DD_REG_M1_ENC &= ~BIT_M1_ENCA;
+	DD_REG_M1_ENC &= ~BIT_M1_ENCB;
 	
 	// Grab the intial encoder bit values
 	lastEncA = GET_ENCA;
@@ -130,7 +141,7 @@ void motor_test()
 
 	set_motors(m1_speed * (m1_back ? -1 : 1),0);
 	delay_ms(50);
-	
+#if 0
 	// Read the counts for motor 1 and print to LCD.
     lcd_goto_xy(0,0);
     print_long(encoders_get_counts_m1());
@@ -139,7 +150,12 @@ void motor_test()
     lcd_goto_xy(0,1);
     print_long(encoders_get_counts_m2());
     print(" ");
-    
+#else
+    // Read the counts for motor 1 and print to LCD.
+    lcd_goto_xy(0,0);
+    print_long(encoderVal);
+    print(" ");
+#endif
 	// Print the encoder counts
 	//sendLen = sprintf(send_buffer, "Encoder: %d\r\n", encoderVal);
 	//sendLen = sprintf(send_buffer, "Encoder: %d, %d\r\n", 
@@ -162,7 +178,7 @@ void lab1_test()
 }
 /*
 // External Interrupt 1 Handler
-ISR(PCINT1_vect)
+ISR(PCINT3_vect)
 {
     currEncA = GET_ENCA;
     if(currEncA == 1)
