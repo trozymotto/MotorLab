@@ -116,7 +116,7 @@ void init_timers() {
 
 }
 
-/*
+
 //INTERRUPT HANDLERS
 ISR(TIMER0_COMPA_vect) {
 
@@ -130,5 +130,5 @@ ISR(TIMER0_COMPA_vect) {
 	if ( ( G_ms_ticks % G_red_period ) == 0 )
 		G_release_red = 1;
 }
-*/
+
 

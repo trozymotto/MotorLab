@@ -40,7 +40,7 @@ int main(void)
     init_motor_control();
 	lcd_init_printf();	// required if we want to use printf() for LCD printing
 	//init_LEDs();
-	//init_timers();
+	init_timers();
 	//init_menu();	// this is initialization of serial comm through USB
 	
 	clear();	// clear the LCD

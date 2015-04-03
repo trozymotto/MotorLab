@@ -20,6 +20,9 @@ typedef struct {
 }MotorData;
 */
 
+#define COUNTS_PER_REV 2249
+#define FULL_REV 360
+
 // define the data direction registers
 #define DD_REG_ENC  DDRD
 #define DD_REG_PWM  DDRD
@@ -28,6 +31,10 @@ typedef struct {
 // define the output ports by which you send signals to the LEDs
 #define PORT_M1_2        PORTD
 #define PORT_M1_2_DIR    PORTC
+
+// define the input ports
+#define PIN_M1_2      PIND
+#define PIN_M1_2_DIR  PINC
 
 // define the bit-masks for each port that the LEDs are attached to
 #define BIT_M1_ENCA   ( 1 << 2 )
@@ -41,11 +48,11 @@ typedef struct {
 #define BIT_M2_DIR    ( 1 << 6 ) 
 
 // define "function" calls for getting the encoder pins
-#define GET_M1_ENCA ((PORT_M1_2 & BIT_M1_ENCA) > 0)?1:0
-#define GET_M1_ENCB ((PORT_M1_2 & BIT_M1_ENCB) > 0)?1:0
+#define GET_M1_ENCA ((PIN_M1_2 & BIT_M1_ENCA) > 0)?1:0
+#define GET_M1_ENCB ((PIN_M1_2 & BIT_M1_ENCB) > 0)?1:0
 
-#define GET_M2_ENCA ((PORT_M1_2 & BIT_M2_ENCA) > 0)?1:0
-#define GET_M2_ENCB ((PORT_M1_2 & BIT_M2_ENCB) > 0)?1:0
+#define GET_M2_ENCA ((PIN_M1_2 & BIT_M2_ENCA) > 0)?1:0
+#define GET_M2_ENCB ((PIN_M1_2 & BIT_M2_ENCB) > 0)?1:0
 
 
 // function call prototypes
@@ -53,6 +60,9 @@ void init_encoder();
 void init_motor_control();
 void motor_test();
 void clear_motor();
+int limit_value(int data, int lower, int upper);
+int abs_int(int value);
+void interpolator();
 
 #endif
 

@@ -22,8 +22,23 @@ volatile int m1currEncB = 0;
 volatile int m1lastEncA = 0;
 volatile int m1lastEncB = 0;
 volatile int m1encoder = 0;
+volatile int m1setpoint[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
+volatile int m1settime[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
 volatile int m1speed = 0;
-volatile int m1reverse = 0;
+volatile int m1test = 0;
+volatile int m1LastSpeedCnt = 0;
+volatile int m1PosError = 0;
+volatile int m1LastPos = 0;
+volatile int m1LastPosError = 0;
+volatile int m1SpdError = 0;
+volatile int m1index = 0;
+const double m1Kp = 0.2;
+const double m1Ki = 0.0015;
+const double m1Kd = 5;
+volatile int m1d = 0;
+volatile int m1i = 0;
+volatile int m1settle = 0;
+double m1CalcSpeed = 0.0;
 
 volatile int m2currEncA = 0;
 volatile int m2currEncB = 0;
@@ -45,7 +60,6 @@ void clear_motors()
     m1lastEncB = 0;
     m1encoder = 0;
     m1speed = 0;
-    m1reverse = 0;
 
     m2currEncA = 0;
     m2currEncB = 0;
@@ -53,7 +67,6 @@ void clear_motors()
     m2lastEncB = 0;
     m2encoder = 0;
     m2speed = 0;
-    m2reverse = 0;
 }
 
 void init_motor_control()
@@ -86,8 +99,14 @@ void motor_test()
 {
 	if(button_is_pressed(TOP_BUTTON))
 	{	
-		m1speed += 10;
-		m2speed += 10;
+	    if(m1speed > 0)
+		    m1speed += 10;
+		else
+		    m1speed -= 10;
+		if(m2speed > 0)
+		    m2speed += 10;
+		else
+		    m2speed -= 10;
 	}
 	
     // Reverse direction
@@ -96,38 +115,45 @@ void motor_test()
 	    // Stop first then change direction
 	    set_motors(0,0);
 	    delay_ms(200);
-	    m1reverse = !m1reverse;
-	    m2reverse = !m2reverse;
+	    m1speed *= -1;
+	    m2speed *= -1;
 	}
 
 	if(button_is_pressed(BOTTOM_BUTTON))
 	{
-		m1speed -= 10;
-		m2speed -= 10;
+		if(m1speed > 0)
+		    m1speed -= 10;
+		else
+		    m1speed += 10;
+		if(m2speed > 0)
+		    m2speed -= 10;
+		else
+		    m2speed += 10;
 	}
 
-	if(m1speed < 0)
-		m1speed = 0;
+	m1speed = limit_value(m1speed, -255, 255);
+	m2speed = limit_value(m2speed, -255, 255);
 
-	if(m2speed < 0)
-		m2speed = 0;
-
-	if(m1speed > 255)
-		m1speed = 255;
-
-	if(m2speed > 255)
-		m2speed = 255;
-
-	set_motors(m1speed * (m1reverse ? -1 : 1), m2speed * (m2reverse ? -1 : 1));
+	//set_motors(m1speed * (m1reverse ? -1 : 1), m2speed * (m2reverse ? -1 : 1));
+	set_motors(m1speed, m2speed);
 	delay_ms(50);
 
     // Read the counts for motor 1 and print to LCD.
-/*    lcd_goto_xy(0,0);
+    lcd_goto_xy(0,0);
+    //sendLen = snprintf(send_buffer, 32, "%f", m1CalcSpeed);//(float)m1encoder*FULL_REV/COUNTS_PER_REV);
+    //print_from_program_space("you suck!");//send_buffer);
     print_long(m1encoder);
+    print(", ");
+    print_long(m1speed);
     print(" ");
     lcd_goto_xy(0,1);
-    print_long(m2encoder);
-    print(" ");*/
+    //print_long((signed long)m1CalcSpeed*1000);
+    print_long(m1PosError);
+    print(", ");
+    print_long(m1i);
+    print(" ");
+    print_long(m1d);
+    print(" ");
 
 }
 
@@ -140,109 +166,85 @@ ISR(PCINT3_vect)
     m2currEncA = GET_M2_ENCA;
     m2currEncB = GET_M2_ENCB;
     
-    lcd_goto_xy(0,0);
-    print_long(m1currEncA);
-    print(" ");
-    lcd_goto_xy(0,1);
-    print_long(m1lastEncA);
-    print(" ");
+    char m1plus = m1currEncA ^ m1lastEncB;
+    char m1minus = m1currEncB ^ m1lastEncA;
+    char m2plus = m2currEncA ^ m2lastEncB;
+    char m2minus = m2currEncB ^ m2lastEncA; 
     
-    if(m1currEncA != m1lastEncA)
-    {
-        m1lastEncA = m1currEncA;
-        if(m1currEncA == 1)
-        {
-            if(m1lastEncB == 0)
-                m1encoder++;
-            else
-                m1encoder--;
-        }
-        else 
-        {
-            if(m1lastEncB == 1)
-                m1encoder++;
-            else
-                m1encoder--;
-        }
-    }
-    /*
-    else if(m1currEncB != m1lastEncB)
-    {
-        m1lastEncB = m1currEncB;
-        if(m1currEncB == 1)
-        {
-            if(m1lastEncA == 1)
-                m1encoder++;
-            else
-                m1encoder--;
-        }
-        else 
-        {
-            if(m1lastEncA == 0)
-                m1encoder++;
-            else
-                m1encoder--;
-        }
-    }*/
-    
-    
-    if(m2currEncA != m2lastEncA)
-    {
-        m2lastEncA = m2currEncA;
-        if(m2currEncA == 1)
-        {
-            if(m2lastEncB == 0)
-                m2encoder++;
-            else
-                m2encoder--;
-        }
-        else 
-        {
-            if(m2lastEncB == 1)
-                m2encoder++;
-            else
-                m2encoder--;
-        }
-    }
-    /*else if(m2currEncB != m2lastEncB)
-    {
-        m2lastEncB = m2currEncB;
-        if(m2currEncB == 1)
-        {
-            if(m2lastEncA == 1)
-                m2encoder++;
-            else
-                m2encoder--;
-        }
-        else 
-        {
-            if(m2lastEncA == 0)
-                m2encoder++;
-            else
-                m2encoder--;
-        }
-    }*/
+    if(m1plus)
+        m1encoder++;
+    if(m1minus)
+        m1encoder--;
+    if(m2plus)
+        m2encoder++;
+    if(m2minus)
+        m2encoder--;
+
+    m1lastEncA = m1currEncA;
+    m1lastEncB = m1currEncB;
+    m2lastEncA = m2currEncA;
+    m2lastEncB = m2currEncB;
 }
 
-/*
-// External Interrupt 2 Handler
-ISR(PCINT2_vect)
+//INTERRUPT HANDLERS
+ISR(TIMER0_COMPA_vect) 
 {
-    currEncB = GET_ENCB;
-    if(currEncB == 1)
-    {
-        if(lastEncA == 1)
-            encoderVal++;
-        else
-            encoderVal--;
-    }
-    else 
-    {
-        if(lastEncA == 0)
-            encoderVal++;
-        else
-            encoderVal--;
-    }
-    lastEncB = currEncB;
+    int m1enc = m1encoder;
+    m1CalcSpeed = (m1encoder - m1LastSpeedCnt) * 100 * FULL_REV/COUNTS_PER_REV;
+    m1LastSpeedCnt = m1enc;
+    
+    m1PosError = m1encoder - m1setpoint[m1index]; 
+    m1d = m1encoder - m1LastPos;
+    m1i = /*limit_value(*/m1i + m1PosError/*, -2000, 2000)*/; 
+    m1speed = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) - (int)(m1d * m1Kd); 
+    
+    m1LastPos = m1encoder;
+    
+    interpolator();
 }
-*/
+
+void interpolator()
+{
+    if(abs_int(m1PosError) <= 15)
+    {
+        m1settle++;
+    }
+    if(m1settle > m1settime[m1index])
+    {
+        m1settle = 0;
+        m1index++;
+        if(m1index >= 10)
+            m1index = 0;
+    }
+    m1test = m1settle;
+}
+
+int limit_value(int data, int lower, int upper)
+{
+    if(data < (lower))
+    {
+        return (lower);
+    }
+    else if(data > upper)
+    {
+        return upper;
+    }
+    return data;
+}
+
+int abs_int(int value)
+{
+    if(value < 0)
+    {
+        return 0-value;
+    }
+    return value;
+}
+
+// Initialize the timers for the PWM control of the two motors
+void motor_pwm_init()
+{
+    TCCR2A = 0x82;
+    TCCR2A = 0x04;
+}
+
