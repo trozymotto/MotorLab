@@ -1,0 +1,64 @@
+﻿Motor Speed
+This is a warm-up exercise that does not need to be handed in. The code written and information obtained through this process will be directly applied to lab 2.
+Create a program that uses PCINT to record encoder values, then uses a separate interrupt to calculate the position and speed of the motor. You need to consider the timing of this interrupt to calculate speed. Run your motor at a set "speed" and output these values to the LCD from inside main (not the interrupt).
+1. What is approximately the shortest and longest period (i.e. fastest and slowest frequency) of the PCINT? You determine this by running your motor at the slowest speed possible and measuring how long it takes to rotate 360, which you can determine by the encoder count. Then you can do the same at full speed.
+2. Run the speed calculator at a frequency faster than the fastest of the PCINT. What speed do you see?
+3. Run the speed calculator very slowly (maybe at 1/10th the frequency). What speed do you see? Is it consistent? What if you slow down or speed up the motor?
+
+
+Introduction 
+For this lab, you will implement two motor controllers using PID control. For positional control, the motor should reach any referenced motor position without significant oscillation. For speed control, the motor should obtain a sustained reference speed. Your goal is to find appropriate values for the gains Kd, Kp, and Ki in the PID equations. In addition, you will develop an interpolator that can follow a positional trajectory (i.e. can reach a series of goal positions).
+Your system will be composed of the following parts:
+A PID controller
+A linear trajectory interpolator
+A user interface
+
+PID Controller
+The PID controller maintains either the position or speed of the motor using the measured and reference positions of each. The encoder provides a measure of position and with this a measure of speed. The sampling rate of the encoder readings is not in your control, because it is interrupt-driven. The PID controller is of the next highest priority in the system. The frequency of the controller should be carefully considered to keep the system stable and accurate.
+In general, the PID controller (as a discrete equation) can be defined as:
+T = Kp(Pr - Pm) + Ki(SUM over time (Pr-Pm)*dt) - Kd( delta(Pr-Pm) / dt )
+T = Output motor signal (torque)
+Pr = Desired value (motor or speed for us)
+Pm = Measured value
+Kp = Proportional gain
+Ki = Integral gain Kd = Derivative gain
+Note that when controlling position, the derivative term at time i becomes:
+delta( Pr - Pm ) / dt  = ( Pr - Pm(i) ) - ( Pr - Pm(i-1) ) / dt = ( Pr - Pr - Pm(i) + Pm(i-1) ) / dt = -Velocity
+T is a signal that can be used directly to control the motor, except check that it is in range { -TOP, TOP }, and use absolute(T) and set motor direction appropriately. You should always be generating motor commands, regardless of whether the reference position is changing or not. This means that at any time, if you move the wheel manually when controlling position, the PID controller should bring it back to the current reference position. In other words, even if the motor is where it should be, do not stop sending commands to the motor, instead send it 0 (or whatever torque value your controller produces).
+Pm and Vm can be computed using the encoder attached to the motor. The encoder generates a pair of signals as the motor shaft rotates, which are used as input signals into 2 general I/O port pins on the Orangutan. Using the Orangutan libraries (the wheel encoder example) as an example, write your own code to set up pin change interrupts on these port pins and count the number of signal changes to track the position of the motor.
+Pr is provided through the user interface or as part of a hard-coded trajectory.
+Kp, Ki, and Kd (ie. gains) are the terms that you define that determine how your system behaves. You will need to determine these values experimentally.
+Motor 
+The motor is attached to the Motor2 port of the Orangutan. This corresponds to OC2B for the PWM drive signal and PC6 as the directional signal. You should write your own code to control the motor, but you may use the Orangutan code as reference material. You use the torque value generated from the controller to adjust the duty cycle of the waveform, thus the speed of the motor. The motors are new to me this year. We might incur a few bumps during development in this domain.
+
+Trajectory Interpolator
+For this lab, the interpolator will be used with positional control and serves the purpose of managing the reference (desired) position and feeding it to the PD controller to execute a complete trajectory (e.g. rotate forward 360 deg, rotate backwards 90 deg, rotate forward 10 deg).
+User Interface 
+The user interface consists of the following commands at a minimum (feel free to add in whatever makes your life easier for programming and debugging):
+L/l: Start/Stop Logging (print) the values of Pr, Pm, and T.
+V/v: View the current values Kd, Kp, Vm, Pr, Pm, and T
+R/r : Set the reference position (use unit "counts")
+S/s : Set the reference speed (use unit "counts"/sec)
+P: Increase Kp by an amount of your choice*
+p: Decrease Kp by an amount of your choice
+D: Increase Kd by an amount of your choice
+d: Decrease Kd by an amount of your choice
+t: Execute trajectory
+* The amount to increase or decrease the gain by depends on how you set up the PWM channel
+This interface will mostly be used by you to tune your gains and test your code. If you have a simpler system, by all means use it, but please let me know how to use it through your documentation.
+Deliverables
+Hand in all of the code necessary to compile your project. Please put sufficient comments in your code so that I can follow what you are doing. Also, if your code is not working in some aspect, please include that in your report. In addition, submit a report that addresses the following:
+1. Implement the controller to maintain speed. The pieces to experiment with are the sampling rate and the range of reference speed. Note that you can only achieve about 5 degrees of accuracy due to the sensor, thus you will need to calculate speed using a sliding window of averaged measurements or slow your sampling rate. (This was the old motors. With the new you have better than 1 degree accuracy. But you still want to think about sampling rate and when and where to calculate speed.) Use the information from the warm-up exercises to set the frequency of the controller. Tune your gains for an average speed.
+Use only P. Increase the gain to get a fast response (i.e. get to your set point quickly). Then increase it a little more to oscillate.
+Add in I. Increase the gain to get a faster response and address the steady-state error in which once the system achieves its speed, P falls back to 0 thus the speed cannot be steadily maintained. Add in more I so that it is oscillating.
+Add in D to dampen the response and eliminate oscillation.
+Report on your observations.
+2. Use your gains above to maintain a very low speed, then a very high speed. Do these gains work for both? What if you change the frequency of the speed calculation (not derived inside the interrupt but rather in the controller) to a quarter of the frequency of the encoder interrupt, then what happens to the system? (Essentially, I'm asking you to play around with the system a bit and see what the different settings do and how the system changes. If you have other questions that you are more curious about, then you can experiment with that.) Report on your observations and form some conclusions (e.g. "For the best results, the frequency of the controller should be set at XXX.").
+3. Implement the controller to maintain position. Using a good sampling rate, tune your gains in a similar manner above, and experiment with the speed and the range of reference position.
+Start with very low gains so that the motor runs very slow and takes its time getting to the set position. Take out the I term, so that you are only using a PD controller. Do you observe any undershoot?
+Use high gains for positional control, so that the motor mostly runs at full speed. Observe the overshoot and see if you can adjust the gains to maintain both a high speed and not overshoot. For these "ideal" gains you determined, record the measured position, measured speed, reference position, and error. (You can do a screen dump and capture the screen output using PuTTY (or others) then import that data into Excel.) Graph the variables and describe and explain your findings.
+
+4. Determine optimally tuned values for the PID positional controller (i.e. those that achieve good control while maintaining good speed) and the optimal frequency of the controller based on above experiment. Implement the interpolator and execute the trajectory: rotate the motor forward 90 degrees, hold for .5 seconds (have the system precisely measure this time period), then rotate backwards for 360 degrees, hold for .5 seconds, rotate forwards for 5 degrees. Graph Pm, Pr and T while executing the trajectory. Be sure to graph the entire trajectory.
+5. Execute the same trajectory described above, except run your PD controller at a "slow" rate and at a "very slow" rate while graphing the same variables. Discuss the results.
+
+

@@ -22,15 +22,18 @@ volatile int m1currEncB = 0;
 volatile int m1lastEncA = 0;
 volatile int m1lastEncB = 0;
 volatile int m1encoder = 0;
+volatile int m1SpdSetpoint[10] = {300, 600, 500, 100, -100, -500, 300, -200, -500, 0};
+volatile int m1SpdSettime[10] = {10, 10, 5, 10, 10, 10, 50, 10, 10, 20};
 volatile int m1setpoint[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
 volatile int m1settime[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
 volatile int m1speed = 0;
 volatile int m1test = 0;
 volatile int m1LastSpeedCnt = 0;
 volatile int m1PosError = 0;
+volatile int m1SpdError = 0;
+volatile double m1LastSpd = 0;
 volatile int m1LastPos = 0;
 volatile int m1LastPosError = 0;
-volatile int m1SpdError = 0;
 volatile int m1index = 0;
 const double m1Kp = 0.2;
 const double m1Ki = 0.0015;
@@ -73,6 +76,7 @@ void init_motor_control()
 {
     clear_motors();
     init_encoder();
+    motor_pwm_init();
 }
 
 void init_encoder()
@@ -135,7 +139,8 @@ void motor_test()
 	m2speed = limit_value(m2speed, -255, 255);
 
 	//set_motors(m1speed * (m1reverse ? -1 : 1), m2speed * (m2reverse ? -1 : 1));
-	set_motors(m1speed, m2speed);
+	//set_motors(m1speed, m2speed);
+	motor_speed(1, m1speed);
 	delay_ms(50);
 
     // Read the counts for motor 1 and print to LCD.
@@ -150,9 +155,9 @@ void motor_test()
     //print_long((signed long)m1CalcSpeed*1000);
     print_long(m1PosError);
     print(", ");
-    print_long(m1i);
-    print(" ");
-    print_long(m1d);
+    print_long(m1CalcSpeed);//m1i);
+    print(", ");
+    print_long(m1SpdError);//m1d);
     print(" ");
 
 }
@@ -186,21 +191,56 @@ ISR(PCINT3_vect)
     m2lastEncB = m2currEncB;
 }
 
-//INTERRUPT HANDLERS
-ISR(TIMER0_COMPA_vect) 
+//POSITION CONTROL
+/*ISR(TIMER0_COMPA_vect) 
 {
-    int m1enc = m1encoder;
-    m1CalcSpeed = (m1encoder - m1LastSpeedCnt) * 100 * FULL_REV/COUNTS_PER_REV;
-    m1LastSpeedCnt = m1enc;
-    
-    m1PosError = m1encoder - m1setpoint[m1index]; 
-    m1d = m1encoder - m1LastPos;
-    m1i = /*limit_value(*/m1i + m1PosError/*, -2000, 2000)*/; 
+    m1PosError = m1setpoint[m1index] - m1encoder; 
+    m1d = m1LastPos - m1encoder;
+    m1i = m1i + m1PosError; 
     m1speed = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) - (int)(m1d * m1Kd); 
     
     m1LastPos = m1encoder;
     
     interpolator();
+}*/
+
+// SPEED CONTROL
+int speedCnt = 0;
+ISR(TIMER0_COMPA_vect) 
+{
+    speedCnt++;
+
+    if(speedCnt >= 100)
+    {
+        int m1enc = m1encoder;
+        m1CalcSpeed = (double)(m1enc - m1LastSpeedCnt);///0.001;
+        m1LastSpeedCnt = m1enc;
+        
+        m1SpdError = m1SpdSetpoint[m1index] - m1CalcSpeed;
+    
+        m1speed = m1speed + (int)(m1SpdError*0.2);
+        m1LastSpd = m1CalcSpeed;
+        speed_interpolator();
+        speedCnt = 0;
+    }
+}
+
+
+
+void speed_interpolator()
+{
+    if(abs_int(m1SpdError) <= 10)
+    {
+        m1settle++;
+    }
+    if(m1settle > m1SpdSettime[m1index])
+    {
+        m1settle = 0;
+        m1index++;
+        if(m1index >= 10)
+            m1index = 0;
+    }
+    m1test = m1settle;
 }
 
 void interpolator()
@@ -244,7 +284,42 @@ int abs_int(int value)
 // Initialize the timers for the PWM control of the two motors
 void motor_pwm_init()
 {
-    TCCR2A = 0x82;
-    TCCR2A = 0x04;
+    DD_REG_PWM |= BIT_M1_PWM | BIT_M2_PWM;
+    DD_REG_DIR |= BIT_M1_DIR | BIT_M2_DIR;
+    
+    //Fast PWM - TOP =OCRA, Update OCRx at BOTTOM, TOV FLag Set on TOP
+    //Mode 7, WGM2 = 1, WGM1 = 1, WGM0 = 1
+    //CLEAR OC21 on Compare Match, set OC2A at BOTTOM (non-inverting mode). Table 17-3 Page 151
+    //Page 151
+    TCCR2A = (1<<COM2A1) | (0<<COM2A0) | (0<<COM2B1) | (0<<COM2B0) | (0<<3) | (0<<2) | (1<< WGM21) | (1<<WGM20); //0x83;
+
+    // use the system clock/8 (=2.5 MHz) as the timer clock,
+    // which will produce a PWM frequency of 10 kHz
+    //Page 153
+    TCCR2B = (0<<FOC2A) | (0<<FOC2B) | (0x0<<5) | (0x0<<4) | (0<<WGM22) |  (0<<CS22) | (1<<CS21) | (0 << CS20); //0x02;
+
+    OCR2A = 0;
+}
+
+void motor_speed(int motor, int speed)
+{
+   speed = limit_value(speed, -255, 255);
+   if(motor == 1)
+   {
+      if(speed >= 0)
+      {
+         PORT_M1_2_DIR |= BIT_M1_DIR;
+         OCR2A = speed;
+      }
+      else
+      {
+         PORT_M1_2_DIR &= ~BIT_M1_DIR;
+         OCR2A = abs_int(speed);
+      }
+   }
+   else
+   {
+   
+   }
 }
 

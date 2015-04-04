@@ -58,11 +58,14 @@ typedef struct {
 // function call prototypes
 void init_encoder();
 void init_motor_control();
+void motor_pwm_init();
 void motor_test();
 void clear_motor();
 int limit_value(int data, int lower, int upper);
 int abs_int(int value);
 void interpolator();
+void speed_interpolator();
+void motor_speed(int motor, int speed);
 
 #endif
 
