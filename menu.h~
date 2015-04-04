@@ -9,7 +9,7 @@
 #include <pololu/orangutan.h>  
 
 #define MENU "\rMenu: <L,V,R,S,P,D,t>: "
-#define MENU_LENGTH 24
+#define MENU_LENGTH 21
 #define ECHO2LCD 1
 
 /* This is a customization of the serial2 example from the Pololu library examples. (ACL)

@@ -35,13 +35,10 @@ char send_buffer[32];
 int main(void) 
 {
 	// Initialization here.
-    //encoders_init(IO_D2, IO_D3, IO_C0, IO_B4);
-    //init_encoder();
     init_motor_control();
 	lcd_init_printf();	// required if we want to use printf() for LCD printing
-	//init_LEDs();
 	init_timers();
-	//init_menu();	// this is initialization of serial comm through USB
+	init_menu();	// this is initialization of serial comm through USB
 	
 	clear();	// clear the LCD
 
@@ -52,7 +49,8 @@ int main(void)
 	{
         //lab1_test();
         motor_test();
-		
+        serial_check();
+		check_for_new_bytes_received();
 	} //end while loop
 } //end main
 

@@ -14,8 +14,8 @@ LDFLAGS=-Wl,-gc-sections -lpololu_$(DEVICE) -Wl,-relax
 PORT ?= /dev/ttyACM0
 AVRDUDE=avrdude
 
-TARGET=MotorLab
-OBJECT_FILES=MotorLab.o LEDs.o timers.o menu.o
+TARGET=main
+OBJECT_FILES=main.o motor_controller.o LEDs.o timers.o menu.o
 
 all: $(TARGET).hex
 
@@ -25,7 +25,7 @@ clean:
 %.hex: $(TARGET).obj
 	$(OBJ2HEX) -R .eeprom -O ihex $< $@
 
-lab1.o: MotorLab.c
+main.o: main.c
 
 %.obj: $(OBJECT_FILES)
 	$(CC) $(CFLAGS) $(OBJECT_FILES) $(LDFLAGS) -o $@

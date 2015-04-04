@@ -15,17 +15,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 // GLOBALS
+eControlType m1CtrlType = CTRL_OFF;
+eControlType m2CtrlType = CTRL_OFF;
+
+// Global variables
+volatile int m1SpdSetpoint;
+volatile int m1PosSetpoint;
+
 volatile int m1currEncA = 0;
 volatile int m1currEncB = 0;
 volatile int m1lastEncA = 0;
 volatile int m1lastEncB = 0;
 volatile int m1encoder = 0;
-volatile int m1SpdSetpoint[10] = {300, 600, 500, 0, -100, -500, 300, -200, -500, 0};
-volatile int m1SpdSettime[10] = {100, 100, 50, 200, 1000, 1000, 500, 1000, 1000, 200};
-volatile int m1setpoint[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
-volatile int m1settime[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
+double m1Velocity = 0.0;
+double m1Accel = 0.0;
+volatile int m1SpdSetpointArray[10] = {300, 600, 500, 300, 50, -100, -300, -500, -200, 100};
+volatile int m1SpdSettimeArray[10] = {10, 10, 5, 10, 10, 10, 50, 10, 10, 20};
+volatile int m1PosSetpointArray[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
+volatile int m1PosSettimeArray[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
 volatile int m1speed = 0;
 volatile int m1test = 0;
 volatile int m1LastSpeedCnt = 0;
@@ -34,7 +42,8 @@ volatile int m1SpdError = 0;
 volatile double m1LastSpd = 0;
 volatile int m1LastPos = 0;
 volatile int m1LastPosError = 0;
-volatile int m1index = 0;
+volatile int m1PosIndex = 0;
+volatile int m1SpdIndex = 0;
 const double m1Kp = 0.2;
 const double m1Ki = 0.0015;
 const double m1Kd = 5;
@@ -145,8 +154,6 @@ void motor_test()
 
     // Read the counts for motor 1 and print to LCD.
     lcd_goto_xy(0,0);
-    //sendLen = snprintf(send_buffer, 32, "%f", m1CalcSpeed);//(float)m1encoder*FULL_REV/COUNTS_PER_REV);
-    //print_from_program_space("you suck!");//send_buffer);
     print_long(m1encoder);
     print(", ");
     print_long(m1speed);
@@ -159,7 +166,6 @@ void motor_test()
     print(", ");
     print_long(m1SpdError);//m1d);
     print(" ");
-
 }
 
 
@@ -191,72 +197,113 @@ ISR(PCINT3_vect)
     m2lastEncB = m2currEncB;
 }
 
-//POSITION CONTROL
-/*ISR(TIMER0_COMPA_vect) 
-{
-    m1PosError = m1setpoint[m1index] - m1encoder; 
-    m1d = m1LastPos - m1encoder;
-    m1i = m1i + m1PosError; 
-    m1speed = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) - (int)(m1d * m1Kd); 
-    
-    m1LastPos = m1encoder;
-    
-    interpolator();
-}*/
-
-// SPEED CONTROL
-int speedCnt = 0;
+// POSITION CONTROL and SPEED CONTROL ISR
 ISR(TIMER0_COMPA_vect) 
 {
-    speedCnt++;
-
-    if(speedCnt >= 100)
+    static int speedCnt = 0;
+    // SPEED CONTROL
+    switch(m1CtrlType)
     {
-        int m1enc = m1encoder;
-        m1CalcSpeed = (double)(m1enc - m1LastSpeedCnt);///0.001;
-        m1LastSpeedCnt = m1enc;
+    case CTRL_SPD_SETPNT:
+    case CTRL_SPD_INTERP:
+        speedCnt++;
+
+        if(speedCnt >= 100)
+        {
+            int m1enc = m1encoder;
+            m1CalcSpeed = (double)(m1enc - m1LastSpeedCnt);///0.001;
+            m1LastSpeedCnt = m1enc;
+            
+            m1SpdError = m1SpdSetpoint - m1CalcSpeed;
         
-        m1SpdError = m1SpdSetpoint[m1index] - m1CalcSpeed;
-    
-        m1speed = m1speed + (int)(m1SpdError*0.2);
-        m1LastSpd = m1CalcSpeed;
-        speed_interpolator();
-        speedCnt = 0;
+            m1speed = m1speed + (int)(m1SpdError*0.2);
+            m1LastSpd = m1CalcSpeed;
+            
+            // Run the interpolator
+            if(m1CtrlType == CTRL_SPD_INTERP)
+                speed_interpolator();
+            
+            speedCnt = 0;
+        }
+        break;
+    // POSITION CONTROL
+    case CTRL_POS_SETPNT:
+    case CTRL_POS_INTERP:
+        m1PosError = m1PosSetpoint - m1encoder; 
+        m1d = m1LastPos - m1encoder;
+        m1i = m1i + m1PosError; 
+        m1speed = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) - (int)(m1d * m1Kd); 
+        
+        m1LastPos = m1encoder;
+        
+        // Run the interpolator
+        if(m1CtrlType == CTRL_POS_INTERP)
+            interpolator();
+        break;
+    default:
+        break;
+    }
+
+}
+
+void set_ctrl_type(eControlType type, int setpoint)
+{
+    m1CtrlType = type;
+    switch (type)
+    {
+    case CTRL_SPD_SETPNT:
+        m1SpdSetpoint = setpoint;
+        break;
+    case CTRL_POS_SETPNT:
+        m1PosSetpoint = setpoint;
+        break;
+    case CTRL_SPD_INTERP:
+    case CTRL_POS_INTERP:
+        m1settle = 0;
+        m1SpdIndex = 0;
+        m1PosIndex = 0;
+        break;
+    default:
+        break;
     }
 }
 
-
-
 void speed_interpolator()
 {
-    if(abs_int(m1SpdError) <= 10)
+    if(m1CtrlType == CTRL_SPD_SETPNT)
     {
-        m1settle++;
+        if(abs_int(m1SpdError) <= 10)
+        {
+            m1settle++;
+        }
+        if(m1settle > m1SpdSettimeArray[m1SpdIndex])
+        {
+            m1settle = 0;
+            m1SpdIndex++;
+            if(m1SpdIndex >= 10)
+                m1SpdIndex = 0;
+        }
+        m1SpdSetpoint = m1SpdSetpointArray[m1SpdIndex];
     }
-    if(m1settle > m1SpdSettime[m1index])
-    {
-        m1settle = 0;
-        m1index++;
-        if(m1index >= 10)
-            m1index = 0;
-    }
-    m1test = m1settle;
 }
 
 void interpolator()
 {
-    if(abs_int(m1PosError) <= 15)
+    if(m1CtrlType == CTRL_POS_SETPNT)
     {
-        m1settle++;
+        if(abs_int(m1PosError) <= 15)
+        {
+            m1settle++;
+        }
+        if(m1settle > m1PosSettimeArray[m1PosIndex])
+        {
+            m1settle = 0;
+            m1PosIndex++;
+            if(m1PosIndex >= 10)
+                m1PosIndex = 0;
+        }
+        m1PosSetpoint = m1PosSetpointArray[m1SpdIndex];
     }
-    if(m1settle > m1settime[m1index])
-    {
-        m1settle = 0;
-        m1index++;
-        if(m1index >= 10)
-            m1index = 0;
-    }
-    m1test = m1settle;
 }
 
 int limit_value(int data, int lower, int upper)
@@ -291,12 +338,12 @@ void motor_pwm_init()
     //Mode 7, WGM2 = 1, WGM1 = 1, WGM0 = 1
     //CLEAR OC21 on Compare Match, set OC2A at BOTTOM (non-inverting mode). Table 17-3 Page 151
     //Page 151
-    TCCR2A = (1<<COM2A1) | (0<<COM2A0) | (0<<COM2B1) | (0<<COM2B0) | (0<<3) | (0<<2) | (1<< WGM21) | (1<<WGM20); //0x83;
+    TCCR2A = (1<<COM2A1) | (0<<COM2A0) | (0<<COM2B1) | (0<<COM2B0) | (1<< WGM21) | (1<<WGM20); //0x83;
 
     // use the system clock/8 (=2.5 MHz) as the timer clock,
     // which will produce a PWM frequency of 10 kHz
     //Page 153
-    TCCR2B = (0<<FOC2A) | (0<<FOC2B) | (0x0<<5) | (0x0<<4) | (0<<WGM22) |  (0<<CS22) | (1<<CS21) | (0 << CS20); //0x02;
+    TCCR2B = (0<<FOC2A) | (0<<FOC2B) | (0<<WGM22) |  (0<<CS22) | (1<<CS21) | (0 << CS20); //0x02;
 
     OCR2A = 0;
 }
@@ -323,3 +370,30 @@ void motor_speed(int motor, int speed)
    }
 }
 
+void print_motor_vals()
+{
+    // Used to pass to USB_COMM for serial communication
+	int length;
+	char tempBuffer[32];
+    wait_for_sending_to_finish();
+    
+    // Print the header
+    length = sprintf( tempBuffer, "Kp,Ki,Kd,Vm,Pr,Pm,T\r\n");
+    print_usb(tempBuffer, length);
+    wait_for_sending_to_finish();
+    
+    // View the current values Kd, Kp, Vm, Pr, Pm, and T
+    length = sprintf( tempBuffer, "%f,%f,%f,%f\r\n",//,%d,%d,%d\r\n", 
+                      m1Kp, m1Ki, m1Kd, m1Velocity );
+    print_usb(tempBuffer, length);
+    wait_for_sending_to_finish();
+}
+
+void enable_logging(int enable)
+{
+   // clear out any previous data
+   //if(enable){
+   //    memcpy(,0,sizeof());
+   //}
+   bEnableLog = enable;
+}

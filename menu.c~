@@ -94,11 +94,9 @@ void process_received_string(const char* buffer)
 		    break;
 	    // Start Logging 
 		case 'L':
-		    enable_logging(1);
 		    break;
 		// Stop Logging
 		case 'l':
-		    enable_logging(0);
 		    break;
 		//V/v: View the current values Kd, Kp, Vm, Pr, Pm, and T
 		case 'V':

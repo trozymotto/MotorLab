@@ -8,15 +8,22 @@
 
 #include <string.h>
 
+typedef enum {
+    CTRL_OFF,
+    CTRL_SPD_SETPNT,
+    CTRL_SPD_INTERP,
+    CTRL_POS_SETPNT,
+    CTRL_POS_INTERP,
+}eControlType;
+
 /*
 typedef struct {
-    volatile int currEncA;
-    volatile int currEncB;
-    volatile int lastEncA;
-    volatile int lastEncB;
-    volatile int encoder;
-    volatile double speed;
-    char reverse;
+    int currEncA;
+    int currEncB;
+    int lastEncA;
+    int lastEncB;
+    int encoder;
+    double speed;
 }MotorData;
 */
 
@@ -64,7 +71,10 @@ void clear_motor();
 int limit_value(int data, int lower, int upper);
 int abs_int(int value);
 void interpolator();
+void speed_interpolator();
 void motor_speed(int motor, int speed);
+void set_ctrl_type(eControlType type, int setpoint);
+void print_motor_vals();
 
 #endif
 
