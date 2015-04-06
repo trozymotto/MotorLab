@@ -140,6 +140,7 @@ void process_received_string(const char* buffer)
 		        change_value(KP_SPD, DECREMENT);
 		    else if( get_mode() == CTRL_POS_SETPNT || get_mode() == CTRL_POS_INTERP )
 		        change_value(KP_POS, DECREMENT);
+		    print_motor_vals();
 		    break;
         // Increase Ki 
 		case 'I':
@@ -147,6 +148,7 @@ void process_received_string(const char* buffer)
 		        change_value(KI_SPD, INCREMENT);
 		    else if( get_mode() == CTRL_POS_SETPNT || get_mode() == CTRL_POS_INTERP )
 		        change_value(KI_POS, INCREMENT);
+		    print_motor_vals();
 		    break;
 		// Decrease Ki
 		case 'i':
@@ -154,6 +156,7 @@ void process_received_string(const char* buffer)
 		        change_value(KI_SPD, DECREMENT);
 		    else if( get_mode() == CTRL_POS_SETPNT || get_mode() == CTRL_POS_INTERP )
 		        change_value(KI_POS, DECREMENT);
+		    print_motor_vals();
 		    break;
 		// Increase Kd 
 		case 'D':
@@ -161,6 +164,7 @@ void process_received_string(const char* buffer)
 		        change_value(KD_SPD, INCREMENT);
 		    else if( get_mode() == CTRL_POS_SETPNT || get_mode() == CTRL_POS_INTERP )
 		        change_value(KD_POS, INCREMENT);
+		    print_motor_vals();
 		    break;
 		// Decrease Kd
 		case 'd':
@@ -168,6 +172,7 @@ void process_received_string(const char* buffer)
 		        change_value(KD_SPD, DECREMENT);
 		    else if( get_mode() == CTRL_POS_SETPNT || get_mode() == CTRL_POS_INTERP )
 		        change_value(KD_POS, DECREMENT);
+		    print_motor_vals();
 		    break;
 		default:
 			print_usb( "Command does not compute.\r\n", 27 );

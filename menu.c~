@@ -109,19 +109,23 @@ void process_received_string(const char* buffer)
         case 'R':
 		case 'r':  
 			set_ctrl_type(CTRL_POS_SETPNT, value);
+			enable_logging(1);
 			break;
         //S/s : Set the reference speed (use unit "counts"/sec)
         case 'S':
 		case 's': 
 			set_ctrl_type(CTRL_SPD_SETPNT, value);
+			enable_logging(1);
 			break;
 		// Execute Position Trajectory
 		case 'T':
 			set_ctrl_type(CTRL_POS_INTERP, 0);
+			enable_logging(1);
 			break;
 		// Execute Speed Trajectory
 		case 't':
 			set_ctrl_type(CTRL_SPD_INTERP, 0);
+			enable_logging(1);
 			break; 
 		// Increase Kp 
 		case 'P':

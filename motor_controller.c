@@ -34,8 +34,8 @@ eControlType m1CtrlType = CTRL_OFF;
 eControlType m2CtrlType = CTRL_OFF;
 
 // Log Data
-#define LOG_PERIOD 10
-#define MAX_LOG_LEN 200
+#define LOG_PERIOD 100
+#define MAX_LOG_LEN 500
 volatile int logIndex = 0;
 sLogData log_data[MAX_LOG_LEN];
 volatile int bEnableLog = 0;
@@ -53,8 +53,12 @@ volatile signed long m1encoder = 0;
 
 volatile int m1SpdSetpointArray[10] = {300, 600, 500, 300, 50, -100, -300, -500, -200, 100};
 volatile int m1SpdSettimeArray[10] = {10, 10, 5, 10, 10, 10, 50, 10, 10, 20};
-volatile int m1PosSetpointArray[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
-volatile int m1PosSettimeArray[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
+volatile int m1PosSetpointArray[3] = {562, -1686, -1655};
+        //(int)(90*COUNTS_PER_REV/FULL_REV) = 562
+        //(int)(-270*COUNTS_PER_REV/FULL_REV) = -1686
+        //(int)(-265*COUNTS_PER_REV/FULL_REV) = -1655
+//{300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
+volatile int m1PosSettimeArray[3] = {500, 500, 500};//, 1000, 1000, 1000, 500, 1000, 1000, 200};
 volatile int m1torque = 0;
 volatile int m1LastSpeedCnt = 0;
 volatile int m1PosError = 0;
@@ -67,16 +71,16 @@ volatile int m1PosIndex = 0;
 volatile int m1SpdIndex = 0;
 
 // PID values
-volatile double m1Kp = 0.2;
-volatile double m1Ki = 0.0015;
-volatile double m1Kd = 5;
-volatile double m1SpdKp = 0.2;
-volatile double m1SpdKi = 0.015;
-volatile double m1SpdKd = 0.0;
-volatile int m1d = 0;
-volatile int m1i = 0;
-volatile int m1Spd_d = 0;
-volatile int m1Spd_i = 0;
+volatile double m1Kp = 0.4;//1.2;
+volatile double m1Ki = 0.005;//0.03;
+volatile double m1Kd = 0.0;//2;
+volatile double m1SpdKp = 0.4;
+volatile double m1SpdKi = 0.0005;//0.015;
+volatile double m1SpdKd = 1.2;
+volatile double m1d = 0;
+volatile double m1i = 0;
+volatile double m1Spd_d = 0;
+volatile double m1Spd_i = 0;
 volatile int m1settle = 0;
 double m1Velocity = 0.0;
 double m1Accel = 0.0;
@@ -166,7 +170,7 @@ void motor_test()
     print(", ");
     print_long(m1Velocity);//m1i);
     print(", ");
-    print_long(m1SpdError);//m1d);
+    print_long(m1settle);//m1d);
     print(" ");
     
 }
@@ -199,15 +203,19 @@ ISR(PCINT3_vect)
 }
 
 // POSITION CONTROL and SPEED CONTROL ISR
+// this runs at 1KHz/1ms period
 #define SPEED_PERIOD 10
+#define POSITION_PERIOD 500
 ISR(TIMER0_COMPA_vect) 
 {
     static int logCnt = 0;
     static int speedCnt = 0;
+    static int posCnt = 0;
     
     int m1enc = m1encoder;
     
     speedCnt++;
+    posCnt++;
     // Calculate the velocity
     if(speedCnt >= SPEED_PERIOD)
     {
@@ -228,19 +236,14 @@ ISR(TIMER0_COMPA_vect)
         {   
             m1SpdError = m1SpdSetpoint - m1Velocity;
             m1Accel = m1LastSpd - m1Velocity;
-            m1Spd_i += m1PosError;
+            m1Spd_i += m1SpdError;
             
             // Speed Control PID Equation
-            m1torque = m1torque + (int)(m1SpdError * m1SpdKp) + (int)(m1Spd_i * m1SpdKi) - (int)(m1Accel * m1SpdKd);
+            m1torque = m1torque + (int)(m1SpdError * m1SpdKp) + (int)(m1Spd_i * m1SpdKi) + (int)(m1Accel * m1SpdKd);
             m1LastSpd = m1Velocity;
             
-            // Handle reseting the I component
-            if(m1SpdError == 0)
-                m1Spd_i = 0;
-            
             // Run the interpolator
-            if(m1CtrlType == CTRL_SPD_INTERP)
-                speed_interpolator();
+            speed_interpolator();
             
             speedCnt = 0;
         }
@@ -248,22 +251,25 @@ ISR(TIMER0_COMPA_vect)
     // POSITION CONTROL
     case CTRL_POS_SETPNT:
     case CTRL_POS_INTERP:
-        m1PosError = m1PosSetpoint - m1encoder; 
-        m1d = m1LastPos - m1encoder;
-        m1i += m1PosError; 
-        
-        // Position Control PID Equation
-        m1torque = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) - (int)(m1d * m1Kd); 
-        
-        m1LastPos = m1encoder;
-        
-        // Handle reseting the I component
-        if(m1PosError == 0)
-            m1i = 0;
-                
-        // Run the interpolator
-        if(m1CtrlType == CTRL_POS_INTERP)
+        if(posCnt >= POSITION_PERIOD)
+        {
+            posCnt = 0;
+            m1PosError = m1PosSetpoint - m1enc; 
+            m1d = m1LastPos - m1enc;
+            m1i += m1PosError; 
+            
+            // Position Control PID Equation
+            m1torque = (int)(m1PosError * m1Kp) + (int)(m1i * m1Ki) + (int)(m1d * m1Kd); 
+            
+            m1LastPos = m1enc;
+            
+            // Handle reseting the I component
+            //if(m1PosError == 0)
+            //    m1i = 0;
+                    
+            // Run the interpolator
             interpolator();
+        }
         break;
     default:
         break;
@@ -347,7 +353,7 @@ void set_ctrl_type(eControlType type, int setpoint)
 
 void speed_interpolator()
 {
-    if(m1CtrlType == CTRL_SPD_SETPNT)
+    if(m1CtrlType == CTRL_SPD_INTERP)
     {
         if(abs_int(m1SpdError) <= 10)
         {
@@ -364,22 +370,38 @@ void speed_interpolator()
     }
 }
 
+#define RATE_LIMIT 2249//500//150
 void interpolator()
 {
-    if(m1CtrlType == CTRL_POS_SETPNT)
+    static unsigned long time1 = 0;
+    
+    if(m1CtrlType == CTRL_POS_INTERP)
     {
-        if(abs_int(m1PosError) <= 15)
+        if((abs_int(m1PosError) <= 15) && m1settle == 0)
         {
-            m1settle++;
+            time1 = get_ms();
+            m1settle = 1;
+            //m1settle++;
         }
-        if(m1settle > m1PosSettimeArray[m1PosIndex])
+        if(m1settle == 1 && ((get_ms()-time1) >= 500))
+        //if(m1settle > 50)//m1PosSettimeArray[m1PosIndex])
         {
             m1settle = 0;
             m1PosIndex++;
-            if(m1PosIndex >= 10)
+            if(m1PosIndex >= 3)
                 m1PosIndex = 0;
         }
-        m1PosSetpoint = m1PosSetpointArray[m1SpdIndex];
+        // Rate limiting
+        int mError = m1PosSetpointArray[m1PosIndex] - m1encoder;
+        if(mError > RATE_LIMIT || mError < (0-RATE_LIMIT))
+        {
+            if(mError < 0)
+                m1PosSetpoint = m1encoder - RATE_LIMIT;
+            else
+                m1PosSetpoint = m1encoder + RATE_LIMIT;
+        }
+        else
+            m1PosSetpoint = m1PosSetpointArray[m1PosIndex];
     }
 }
 
@@ -447,8 +469,8 @@ void motor_speed(int motor, int speed)
    }
 }
 
-#define KP_CHANGE_AMT 0.001
-#define KI_CHANGE_AMT 0.001
+#define KP_CHANGE_AMT 0.1
+#define KI_CHANGE_AMT 0.0001
 #define KD_CHANGE_AMT 0.1
 void change_value(eParamType param, eChangeType change)
 {

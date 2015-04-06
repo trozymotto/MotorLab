@@ -17,15 +17,6 @@ typedef enum {
     CTRL_MAX_TYPES
 }eControlType;
 
-// Make a string array so we can print out the mode
-const char * TypeStrings[] = {
-    "CTRL_OFF",
-    "CTRL_SPD_SETPNT",
-    "CTRL_SPD_INTERP",
-    "CTRL_POS_SETPNT",
-    "CTRL_POS_INTERP"
-};
-
 typedef enum {
     NO_CHANGE,
     INCREMENT,
@@ -56,8 +47,8 @@ typedef struct {
 }sLogData;
 
 
-#define COUNTS_PER_REV 2249
-#define FULL_REV 360
+#define COUNTS_PER_REV 2249.0
+#define FULL_REV 360.0
 
 // define the data direction registers
 #define DD_REG_ENC  DDRD
