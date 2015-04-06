@@ -14,18 +14,38 @@ typedef enum {
     CTRL_SPD_INTERP,
     CTRL_POS_SETPNT,
     CTRL_POS_INTERP,
+    CTRL_MAX_TYPES
 }eControlType;
 
-/*
+typedef enum {
+    NO_CHANGE,
+    INCREMENT,
+    DECREMENT
+}eChangeType;
+
+typedef enum {
+    NO_PARAM,
+    KP_SPD,
+    KI_SPD,
+    KD_SPD,
+    KP_POS,
+    KI_POS,
+    KD_POS
+}eParamType;
+
+// Kp,Ki,Kd,Velocity,Setpoint,Position,Torque
+// "%f,%f,%f,%f,%d,%d,%d
 typedef struct {
-    int currEncA;
-    int currEncB;
-    int lastEncA;
-    int lastEncB;
-    int encoder;
-    double speed;
-}MotorData;
-*/
+    unsigned long Time;
+    double Ki;
+    double Kp;
+    double Kd;
+    double Velocity;
+    int Setpoint;
+    int Position;
+    int Torque;
+}sLogData;
+
 
 #define COUNTS_PER_REV 2249
 #define FULL_REV 360
@@ -73,8 +93,12 @@ int abs_int(int value);
 void interpolator();
 void speed_interpolator();
 void motor_speed(int motor, int speed);
+
+// Access routines for Menu control
 void set_ctrl_type(eControlType type, int setpoint);
 void print_motor_vals();
 void enable_logging(int enable);
+void change_value(eParamType param, eChangeType change);
+eControlType get_mode();
 #endif
 

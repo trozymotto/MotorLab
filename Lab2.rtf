@@ -1,8 +1,14 @@
 ﻿Motor Speed
 This is a warm-up exercise that does not need to be handed in. The code written and information obtained through this process will be directly applied to lab 2.
 Create a program that uses PCINT to record encoder values, then uses a separate interrupt to calculate the position and speed of the motor. You need to consider the timing of this interrupt to calculate speed. Run your motor at a set "speed" and output these values to the LCD from inside main (not the interrupt).
+
 1. What is approximately the shortest and longest period (i.e. fastest and slowest frequency) of the PCINT? You determine this by running your motor at the slowest speed possible and measuring how long it takes to rotate 360, which you can determine by the encoder count. Then you can do the same at full speed.
+
+304ms for fastest --> 2249counts/rev * 1rev/0.304s = 7398 counts/sec
+for slowest = counts/sec
+
 2. Run the speed calculator at a frequency faster than the fastest of the PCINT. What speed do you see?
+
 3. Run the speed calculator very slowly (maybe at 1/10th the frequency). What speed do you see? Is it consistent? What if you slow down or speed up the motor?
 
 
