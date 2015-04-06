@@ -56,7 +56,6 @@ volatile int m1SpdSettimeArray[10] = {10, 10, 5, 10, 10, 10, 50, 10, 10, 20};
 volatile int m1PosSetpointArray[10] = {300, 1000, 500, 1000, 1500, 1000, 300, -200, -500, 0};
 volatile int m1PosSettimeArray[10] = {100, 1000, 1000, 1000, 1000, 1000, 500, 1000, 1000, 200};
 volatile int m1torque = 0;
-volatile int m1test = 0;
 volatile int m1LastSpeedCnt = 0;
 volatile int m1PosError = 0;
 volatile int m1SpdError = 0;
@@ -155,12 +154,12 @@ void motor_test()
 
     // Read the counts for motor 1 and print to LCD.
     lcd_goto_xy(0,0);
-    print_long(0);//m1encoder);
+    print_long(m1encoder);
     print(", ");
     print_long(m1torque);
     print(", ");
-    print_long(timeDiff);
-    print(", ");
+    //print_long(timeDiff);
+    //print(", ");
     lcd_goto_xy(0,1);
     //print_long((signed long)m1Velocity*1000);
     print_long(m1PosError);
@@ -200,7 +199,7 @@ ISR(PCINT3_vect)
 }
 
 // POSITION CONTROL and SPEED CONTROL ISR
-#define SPEED_PERIOD 100
+#define SPEED_PERIOD 10
 ISR(TIMER0_COMPA_vect) 
 {
     static int logCnt = 0;
@@ -212,7 +211,7 @@ ISR(TIMER0_COMPA_vect)
     // Calculate the velocity
     if(speedCnt >= SPEED_PERIOD)
     {
-        m1Velocity = (double)(m1enc - m1LastSpeedCnt);///0.001;
+        m1Velocity = (double)(m1enc - m1LastSpeedCnt);
         m1LastSpeedCnt = m1enc;
         
         if(!(m1CtrlType == CTRL_SPD_SETPNT || m1CtrlType == CTRL_SPD_INTERP)){
@@ -320,17 +319,21 @@ ISR(TIMER0_COMPA_vect)
     }
 }
 
+// Set the control type and setpoint data from the menu controller
 void set_ctrl_type(eControlType type, int setpoint)
 {
     m1CtrlType = type;
     switch (type)
     {
+    // Set the speed setpoint
     case CTRL_SPD_SETPNT:
         m1SpdSetpoint = setpoint;
         break;
+    // Set the position setpoint
     case CTRL_POS_SETPNT:
         m1PosSetpoint = setpoint;
         break;
+    // reset the settling time and array indices
     case CTRL_SPD_INTERP:
     case CTRL_POS_INTERP:
         m1settle = 0;
@@ -545,7 +548,7 @@ void enable_logging(int enable)
    
    // Used to pass to USB_COMM for serial communication
    int length;
-   char tempBuffer[64];
+   char tempBuffer[128];
    wait_for_sending_to_finish();
    
    // clear out any previous data
@@ -573,7 +576,7 @@ void enable_logging(int enable)
        // Print the data
        for( i = 0; i < logIndex; i++)
        {
-           length = snprintf( tempBuffer, 64, "%ul,%f,%f,%f,%f,%d,%d,%d\r\n", 
+           length = snprintf( tempBuffer, 128, "%lu,%f,%f,%f,%f,%d,%d,%d\r\n", 
                       log_data[i].Time, log_data[i].Kp, log_data[i].Ki, log_data[i].Kd, 
                       log_data[i].Velocity, log_data[i].Setpoint, 
                       log_data[i].Position, log_data[i].Torque );
